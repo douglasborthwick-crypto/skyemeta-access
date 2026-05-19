@@ -1,0 +1,56 @@
+{
+  "name": "@skyemeta/access",
+  "version": "0.1.0",
+  "description": "Add wallet-token authentication to your API without disturbing existing API-key customers. Either-or middleware: API-key requests pass through unchanged; wallet-signed requests are verified via InsumerAPI's /v1/attest. Free, MIT, BYO InsumerAPI key.",
+  "type": "module",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./build/index.js",
+      "types": "./build/index.d.ts"
+    }
+  },
+  "files": [
+    "build",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "skyemeta",
+    "insumerapi",
+    "wallet-auth",
+    "agent-auth",
+    "condition-based-access",
+    "siwe",
+    "nft-gating",
+    "api-middleware",
+    "express",
+    "ecdsa",
+    "jwks",
+    "attestation"
+  ],
+  "author": "Skye Meta Corp.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/douglasborthwick-crypto/skyemeta-access.git"
+  },
+  "homepage": "https://skyemeta.com/access/",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "jose": "^5.9.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "@types/express": "^4.17.0"
+  }
+}

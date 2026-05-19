@@ -1,0 +1,269 @@
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import { AttestClient, DEFAULT_ATTEST_BASE_URL, DEFAULT_JWKS_URL } from './attest.js';
+import { AttestationCache } from './cache.js';
+import {
+  AccessError,
+  DisabledModeError,
+  InvalidPassError,
+  MisconfiguredTierError,
+  MissingAuthError,
+  NonceTtlTooShortError,
+  ProductionMockError,
+} from './errors.js';
+import { InMemoryNonceStore } from './nonce-store.js';
+import { extractEnvelope, verifySiwe } from './siwe.js';
+import type { AccessConfig, CollectionConfig, NonceStore } from './types.js';
+
+const DEFAULT_CACHE_TTL_MS = 2000;
+const MIN_CACHE_TTL_MS = 100;
+const MIN_NONCE_TTL_MS = 6 * 60 * 1000;
+const DEFAULT_RETRY_COUNT = 1;
+
+export interface AccessRequest extends Request {
+  skyemetaAccess?: {
+    wallet: string;
+    collection: CollectionConfig;
+    tierKey: string;
+  };
+}
+
+export class Access {
+  private readonly insumerApiKey: string;
+  private readonly collections: Record<string, CollectionConfig>;
+  private readonly nonceStore: NonceStore;
+  private readonly cacheTtlMs: number;
+  private readonly cache: AttestationCache;
+  private readonly disabled: boolean;
+  private readonly siweDomain: string | undefined;
+  private readonly localMode: AccessConfig['localMode'];
+  private readonly attestClient: AttestClient;
+
+  constructor(config: AccessConfig) {
+    if (!config.insumerApiKey) {
+      throw new Error('@skyemeta/access: insumerApiKey is required');
+    }
+    if (!config.collections || Object.keys(config.collections).length === 0) {
+      throw new Error('@skyemeta/access: collections map must contain at least one entry');
+    }
+
+    if (config.localMode?.mockAttest && process.env.NODE_ENV !== 'development') {
+      throw new ProductionMockError(process.env.NODE_ENV);
+    }
+
+    if (config.nonceStore?.ttlMs !== undefined && config.nonceStore.ttlMs < MIN_NONCE_TTL_MS) {
+      throw new NonceTtlTooShortError(config.nonceStore.ttlMs);
+    }
+
+    this.insumerApiKey = config.insumerApiKey;
+    this.collections = config.collections;
+    this.nonceStore = config.nonceStore ?? new InMemoryNonceStore();
+    this.cacheTtlMs = resolveCacheTtl(config.cacheTtlMs);
+    this.cache = new AttestationCache(this.cacheTtlMs);
+    this.disabled = config.disabled === true;
+    this.siweDomain = config.siweDomain;
+    this.localMode = config.localMode;
+    this.attestClient = new AttestClient(
+      config.insumerApiKey,
+      config.attestRetryCount ?? DEFAULT_RETRY_COUNT,
+      config.attestBaseUrl ?? DEFAULT_ATTEST_BASE_URL,
+      config.jwksUrl ?? DEFAULT_JWKS_URL,
+    );
+
+    this.emitStartupWarnings(config);
+  }
+
+  requireValidPassOrApiKey(apiKeyHandler: RequestHandler): RequestHandler;
+  requireValidPassOrApiKey(tierKey: string, apiKeyHandler: RequestHandler): RequestHandler;
+  requireValidPassOrApiKey(
+    tierKeyOrHandler: string | RequestHandler,
+    maybeHandler?: RequestHandler,
+  ): RequestHandler {
+    const { tierKey, apiKeyHandler } = this.normalizeMiddlewareArgs(tierKeyOrHandler, maybeHandler);
+    this.assertTierKey(tierKey);
+    const collection = this.collections[tierKey];
+
+    return (req: Request, res: Response, next: NextFunction): void => {
+      const hasApiKey = typeof req.headers['x-api-key'] === 'string';
+      const hasWallet = typeof req.headers.authorization === 'string';
+
+      if (this.disabled) {
+        if (hasApiKey) return void apiKeyHandler(req, res, next);
+        return this.sendError(res, new DisabledModeError());
+      }
+
+      if (hasApiKey && hasWallet) {
+        console.warn(
+          '@skyemeta/access: request contained both X-API-Key and Authorization: Wallet headers; routing to X-API-Key handler (precedence rule).',
+        );
+      }
+
+      if (hasApiKey) return void apiKeyHandler(req, res, next);
+      if (!hasWallet) return this.sendError(res, new MissingAuthError());
+
+      this.handleWalletAuth(req as AccessRequest, res, next, tierKey, collection);
+    };
+  }
+
+  requireValidPass(tierKey?: string): RequestHandler {
+    const resolvedKey = tierKey ?? this.defaultTierKey();
+    this.assertTierKey(resolvedKey);
+    const collection = this.collections[resolvedKey];
+
+    return (req: Request, res: Response, next: NextFunction): void => {
+      if (this.disabled) return this.sendError(res, new DisabledModeError());
+      const hasWallet = typeof req.headers.authorization === 'string';
+      if (!hasWallet) {
+        res.status(401).json({
+          ok: false,
+          error: {
+            code: 401,
+            message: 'This endpoint requires wallet authentication; use the wallet-auth path.',
+          },
+        });
+        return;
+      }
+      this.handleWalletAuth(req as AccessRequest, res, next, resolvedKey, collection);
+    };
+  }
+
+  async hasValidPass(tierKey: string, walletAddress: string): Promise<boolean> {
+    this.assertTierKey(tierKey);
+    const collection = this.collections[tierKey];
+    return this.checkPassWithCache(walletAddress, collection);
+  }
+
+  async verifyWalletSignIn(authorizationHeader: string | undefined): Promise<string> {
+    const envelope = extractEnvelope(authorizationHeader);
+    const { wallet } = await verifySiwe(envelope, {
+      nonceStore: this.nonceStore,
+      siweDomain: this.siweDomain,
+    });
+    return wallet;
+  }
+
+  private async handleWalletAuth(
+    req: AccessRequest,
+    res: Response,
+    next: NextFunction,
+    tierKey: string,
+    collection: CollectionConfig,
+  ): Promise<void> {
+    try {
+      const wallet = await this.verifyWalletSignIn(req.headers.authorization);
+      const pass = await this.checkPassWithCache(wallet, collection);
+      if (!pass) return this.sendError(res, new InvalidPassError());
+      req.skyemetaAccess = { wallet, collection, tierKey };
+      next();
+    } catch (err) {
+      if (err instanceof AccessError) return this.sendError(res, err);
+      console.error('@skyemeta/access: unexpected error in wallet-auth path', err);
+      res.status(500).json({ ok: false, error: { code: 500, message: 'Internal authentication error' } });
+    }
+  }
+
+  private async checkPassWithCache(wallet: string, collection: CollectionConfig): Promise<boolean> {
+    const cached = this.cache.get(wallet, collection.address);
+    if (cached !== undefined) return cached;
+
+    try {
+      const pass = this.localMode?.mockAttest
+        ? Boolean(await this.localMode.mockAttest(wallet, collection.address))
+        : await this.attestClient.checkPass(wallet, collection);
+      this.cache.set(wallet, collection.address, pass);
+      return pass;
+    } catch (err) {
+      const stale = this.cache.getStale(wallet, collection.address);
+      if (stale !== undefined) {
+        console.warn('@skyemeta/access: /v1/attest unreachable; serving stale-cache result');
+        return stale;
+      }
+      throw err;
+    }
+  }
+
+  private sendError(res: Response, err: AccessError): void {
+    res.status(err.suggestedStatus).json({
+      ok: false,
+      error: { code: err.suggestedStatus, message: err.message },
+    });
+  }
+
+  private normalizeMiddlewareArgs(
+    tierKeyOrHandler: string | RequestHandler,
+    maybeHandler: RequestHandler | undefined,
+  ): { tierKey: string; apiKeyHandler: RequestHandler } {
+    if (typeof tierKeyOrHandler === 'string') {
+      if (!maybeHandler) {
+        throw new Error('@skyemeta/access: apiKeyHandler is required when tierKey is provided');
+      }
+      return { tierKey: tierKeyOrHandler, apiKeyHandler: maybeHandler };
+    }
+    return { tierKey: this.defaultTierKey(), apiKeyHandler: tierKeyOrHandler };
+  }
+
+  private defaultTierKey(): string {
+    const keys = Object.keys(this.collections);
+    if (keys.length === 1) return keys[0];
+    if ('default' in this.collections) return 'default';
+    throw new Error(
+      `@skyemeta/access: tierKey is required when collections has multiple entries and no 'default'. Got keys: [${keys.join(', ')}].`,
+    );
+  }
+
+  private assertTierKey(tierKey: string): void {
+    if (!(tierKey in this.collections)) {
+      throw new MisconfiguredTierError(tierKey, Object.keys(this.collections));
+    }
+  }
+
+  private emitStartupWarnings(config: AccessConfig): void {
+    if (this.disabled) {
+      console.warn(
+        '⚠ @skyemeta/access: DISABLED MODE ACTIVE. Wallet auth disabled; X-API-Key callers unaffected. This SDK is currently a pass-through.',
+      );
+    }
+
+    if (!config.nonceStore) {
+      console.warn(
+        '⚠ @skyemeta/access: using in-memory nonceStore. SAFE for single-instance deployments only. ' +
+        'If you\'re running on Cloud Functions, Lambda, or any autoscaling platform, configure a shared store (see docs).',
+      );
+    }
+
+    if (!config.siweDomain && hasProxyEnv()) {
+      console.warn(
+        '⚠ @skyemeta/access: siweDomain is unset and a proxy environment was detected (Vercel/Lambda/Cloud Run). ' +
+        'Set siweDomain explicitly to avoid host-header spoofing.',
+      );
+    }
+
+    if (config.cacheTtlMs !== undefined && config.cacheTtlMs > 0 && config.cacheTtlMs < MIN_CACHE_TTL_MS) {
+      console.warn(
+        `⚠ @skyemeta/access: cacheTtlMs=${config.cacheTtlMs}ms is below the ${MIN_CACHE_TTL_MS}ms minimum floor; using ${MIN_CACHE_TTL_MS}ms. ` +
+        'Pass cacheTtlMs: 0 to truly disable caching (rate-limit risk).',
+      );
+    }
+
+    if (this.localMode?.mockAttest) {
+      console.warn(
+        '⚠ @skyemeta/access: localMode.mockAttest is active. /v1/attest will NOT be called. Development only — production-guarded by NODE_ENV check.',
+      );
+    }
+  }
+}
+
+function resolveCacheTtl(input: number | undefined): number {
+  if (input === undefined) return DEFAULT_CACHE_TTL_MS;
+  if (input === 0) return 0;
+  return Math.max(input, MIN_CACHE_TTL_MS);
+}
+
+function hasProxyEnv(): boolean {
+  return Boolean(
+    process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.K_SERVICE ||
+      process.env.FUNCTION_TARGET ||
+      process.env.FUNCTIONS_EMULATOR,
+  );
+}
