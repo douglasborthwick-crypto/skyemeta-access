@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { AttestUnreachableError, InvalidPassError } from './errors.js';
+import { AttestUnreachableError, InsumerCreditsExhaustedError, InvalidPassError } from './errors.js';
 import type { CollectionConfig } from './types.js';
 import { CHAIN_IDS } from './types.js';
 
@@ -71,6 +71,7 @@ export class AttestClient {
       } catch (err) {
         lastErr = err;
         if (err instanceof InvalidPassError) throw err;
+        if (err instanceof InsumerCreditsExhaustedError) throw err;
         console.error(
           `@skyemeta/access: /v1/attest call failed (attempt ${attempt + 1}/${this.retryCount + 1}):`,
           err instanceof Error ? err.message : err,
@@ -103,6 +104,13 @@ export class AttestClient {
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');
+      if (response.status === 402) {
+        console.error(
+          '@skyemeta/access: /v1/attest returned 402 — InsumerAPI key is out of credits. ' +
+          'Top up at https://insumermodel.com/account/ or via POST /v1/credits/buy.',
+        );
+        throw new InsumerCreditsExhaustedError();
+      }
       throw new Error(`/v1/attest returned HTTP ${response.status}: ${text.slice(0, 200)}`);
     }
 

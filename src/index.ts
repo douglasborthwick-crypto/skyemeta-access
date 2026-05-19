@@ -6,6 +6,7 @@ export {
   DisabledModeError,
   ExpiredSignatureError,
   FutureSignatureError,
+  InsumerCreditsExhaustedError,
   InvalidPassError,
   InvalidSignatureError,
   MisconfiguredTierError,

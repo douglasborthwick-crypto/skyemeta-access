@@ -49,6 +49,19 @@ export class AttestUnreachableError extends AccessError {
   }
 }
 
+/**
+ * Thrown when InsumerAPI /v1/attest returns 402 (Insufficient credits).
+ * Adopter's InsumerAPI key needs a top-up. Distinct from AttestUnreachableError
+ * so adopters can alert on credit drawdown separately from genuine outages.
+ * Client-facing status (503) and opaque message match AttestUnreachableError
+ * — the distinction lives at the error-class level for adopter-side handling.
+ */
+export class InsumerCreditsExhaustedError extends AccessError {
+  constructor() {
+    super('Verification service temporarily unavailable; please retry', 503);
+  }
+}
+
 export class DisabledModeError extends AccessError {
   constructor() {
     super('Wallet authentication is currently unavailable', 401);

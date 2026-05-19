@@ -17,38 +17,41 @@ export interface CollectionConfig {
   chain: ChainName;
 }
 
+// EVM chain names supported by InsumerAPI /v1/attest.
+// Non-EVM chains (solana, xrpl, bitcoin, tron, stellar, sui) are reachable
+// via direct /v1/attest only; the SDK's nft_ownership middleware is EVM-only in v1.
 export type ChainName =
   | 'ethereum'
-  | 'base'
-  | 'optimism'
-  | 'arbitrum'
-  | 'polygon'
   | 'bnb'
+  | 'base'
   | 'avalanche'
-  | 'fantom'
-  | 'gnosis'
-  | 'celo'
-  | 'linea'
-  | 'scroll'
-  | 'zksync'
-  | 'mantle'
-  | 'blast'
-  | 'mode'
-  | 'zora'
-  | 'taiko'
-  | 'sei'
+  | 'polygon'
+  | 'arbitrum'
+  | 'optimism'
+  | 'chiliz'
+  | 'soneium'
+  | 'plume'
+  | 'worldchain'
   | 'sonic'
-  | 'unichain'
-  | 'berachain'
-  | 'ronin'
-  | 'cronos'
-  | 'opbnb'
-  | 'metis'
-  | 'kava'
+  | 'gnosis'
+  | 'mantle'
+  | 'scroll'
+  | 'linea'
+  | 'zksync'
+  | 'blast'
+  | 'celo'
   | 'moonbeam'
+  | 'opbnb'
+  | 'unichain'
+  | 'ink'
+  | 'sei'
+  | 'berachain'
+  | 'apechain'
+  | 'taiko'
+  | 'ronin'
   | 'moonriver'
   | 'viction'
-  | 'apechain';
+  | 'xdc';
 
 export interface LocalModeConfig {
   mockAttest: (wallet: string, collection: string) => Promise<boolean> | boolean;
@@ -93,34 +96,34 @@ export interface AttestationResult {
 
 export const CHAIN_IDS: Record<ChainName, number> = {
   ethereum: 1,
-  base: 8453,
-  optimism: 10,
-  arbitrum: 42161,
-  polygon: 137,
   bnb: 56,
+  base: 8453,
   avalanche: 43114,
-  fantom: 250,
-  gnosis: 100,
-  celo: 42220,
-  linea: 59144,
-  scroll: 534352,
-  zksync: 324,
-  mantle: 5000,
-  blast: 81457,
-  mode: 34443,
-  zora: 7777777,
-  taiko: 167000,
-  sei: 1329,
+  polygon: 137,
+  arbitrum: 42161,
+  optimism: 10,
+  chiliz: 88888,
+  soneium: 1868,
+  plume: 98866,
+  worldchain: 480,
   sonic: 146,
-  unichain: 130,
-  berachain: 80094,
-  ronin: 2020,
-  cronos: 25,
-  opbnb: 204,
-  metis: 1088,
-  kava: 2222,
+  gnosis: 100,
+  mantle: 5000,
+  scroll: 534352,
+  linea: 59144,
+  zksync: 324,
+  blast: 81457,
+  celo: 42220,
   moonbeam: 1284,
+  opbnb: 204,
+  unichain: 130,
+  ink: 57073,
+  sei: 1329,
+  berachain: 80094,
+  apechain: 33139,
+  taiko: 167000,
+  ronin: 2020,
   moonriver: 1285,
   viction: 88,
-  apechain: 33139,
+  xdc: 50,
 };
