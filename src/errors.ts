@@ -44,8 +44,8 @@ export class InvalidPassError extends AccessError {
 }
 
 export class AttestUnreachableError extends AccessError {
-  constructor(detail?: string) {
-    super(detail ? `Verification service temporarily unavailable: ${detail}` : 'Verification service temporarily unavailable; please retry', 503);
+  constructor() {
+    super('Verification service temporarily unavailable; please retry', 503);
   }
 }
 

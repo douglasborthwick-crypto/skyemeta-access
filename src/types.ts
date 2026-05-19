@@ -1,6 +1,14 @@
 export interface NonceStore {
-  has(nonce: string): Promise<boolean> | boolean;
-  set(nonce: string, ttlMs: number): Promise<void> | void;
+  /**
+   * Atomically record a nonce as seen if it has not been seen before.
+   * Returns true on first insert, false if the nonce was already present (replay).
+   *
+   * MUST be atomic: between the existence check and the insert, no other call
+   * can observe a missing-then-present transition. In-memory implementations
+   * achieve this naturally in single-threaded Node. Shared stores must use
+   * primitives like Redis `SET NX` or Firestore transactions.
+   */
+  setIfAbsent(nonce: string, ttlMs: number): Promise<boolean> | boolean;
   ttlMs?: number;
 }
 

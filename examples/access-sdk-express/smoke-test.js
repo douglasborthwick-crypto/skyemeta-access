@@ -200,6 +200,7 @@ async function main() {
       new A({
         insumerApiKey: 'k',
         collections: { default: { address: '0x0', chain: 'base' } },
+        siweDomain: 'localhost',
         localMode: { mockAttest: async () => true },
       });
       throw new Error('did not throw');
@@ -216,7 +217,8 @@ async function main() {
       new A({
         insumerApiKey: 'k',
         collections: { default: { address: '0x0', chain: 'base' } },
-        nonceStore: { has: () => false, set: () => {}, ttlMs: 1000 },
+        siweDomain: 'localhost',
+        nonceStore: { setIfAbsent: () => true, ttlMs: 1000 },
       });
       throw new Error('did not throw');
     } catch (err) {

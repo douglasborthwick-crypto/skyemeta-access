@@ -79,7 +79,7 @@ export async function verifySiwe(
   envelope: SiweEnvelope,
   options: {
     nonceStore: NonceStore;
-    siweDomain?: string;
+    siweDomain: string;
     now?: () => number;
   },
 ): Promise<{ wallet: string; parsed: ParsedSiwe }> {
@@ -93,7 +93,7 @@ export async function verifySiwe(
   if (issuedAtMs > now + SIGNATURE_FUTURE_SKEW_MS) throw new FutureSignatureError();
   if (now - issuedAtMs > SIGNATURE_PAST_MS) throw new ExpiredSignatureError();
 
-  if (options.siweDomain && parsed.domain !== options.siweDomain) {
+  if (parsed.domain !== options.siweDomain) {
     throw new InvalidSignatureError(
       `domain mismatch: signed for '${parsed.domain}', expected '${options.siweDomain}'`,
     );
@@ -115,9 +115,8 @@ export async function verifySiwe(
     throw new InvalidSignatureError('recovered address does not match address in message');
   }
 
-  const replayed = await options.nonceStore.has(parsed.nonce);
-  if (replayed) throw new ReplayedNonceError();
-  await options.nonceStore.set(parsed.nonce, NONCE_RECORD_TTL_MS);
+  const accepted = await options.nonceStore.setIfAbsent(parsed.nonce, NONCE_RECORD_TTL_MS);
+  if (!accepted) throw new ReplayedNonceError();
 
   return { wallet: recovered, parsed };
 }

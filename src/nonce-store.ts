@@ -8,18 +8,19 @@ export class InMemoryNonceStore implements NonceStore {
     this.ttlMs = ttlMs;
   }
 
-  has(nonce: string): boolean {
-    this.sweep();
-    return this.store.has(nonce);
-  }
-
-  set(nonce: string, ttlMs: number): void {
-    this.store.set(nonce, Date.now() + ttlMs);
-  }
-
-  private sweep(): void {
-    if (this.store.size < 1024) return;
+  setIfAbsent(nonce: string, ttlMs: number): boolean {
     const now = Date.now();
+    const existing = this.store.get(nonce);
+    if (existing !== undefined && existing > now) {
+      return false;
+    }
+    this.store.set(nonce, now + ttlMs);
+    this.sweep(now);
+    return true;
+  }
+
+  private sweep(now: number): void {
+    if (this.store.size < 1024) return;
     for (const [nonce, expiresAt] of this.store) {
       if (expiresAt <= now) this.store.delete(nonce);
     }

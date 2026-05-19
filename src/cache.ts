@@ -18,9 +18,14 @@ export class AttestationCache {
     return entry.pass;
   }
 
-  getStale(wallet: string, collection: string): boolean | undefined {
+  getStale(wallet: string, collection: string, maxStaleMs: number): boolean | undefined {
     const entry = this.entries.get(key(wallet, collection));
-    return entry?.pass;
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt + maxStaleMs) {
+      this.entries.delete(key(wallet, collection));
+      return undefined;
+    }
+    return entry.pass;
   }
 
   set(wallet: string, collection: string, pass: boolean): void {

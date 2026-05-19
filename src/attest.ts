@@ -60,7 +60,7 @@ export class AttestClient {
     };
 
     const jwt = await this.callWithRetry(body);
-    return await this.verifyJwt(jwt);
+    return await this.verifyJwt(jwt, wallet);
   }
 
   private async callWithRetry(body: AttestRequestBody): Promise<string> {
@@ -71,14 +71,16 @@ export class AttestClient {
       } catch (err) {
         lastErr = err;
         if (err instanceof InvalidPassError) throw err;
+        console.error(
+          `@skyemeta/access: /v1/attest call failed (attempt ${attempt + 1}/${this.retryCount + 1}):`,
+          err instanceof Error ? err.message : err,
+        );
         if (attempt < this.retryCount) {
           await sleep(RETRY_BACKOFF_MS);
         }
       }
     }
-    throw new AttestUnreachableError(
-      lastErr instanceof Error ? lastErr.message : 'unknown error',
-    );
+    throw new AttestUnreachableError();
   }
 
   private async callOnce(body: AttestRequestBody): Promise<string> {
@@ -115,7 +117,7 @@ export class AttestClient {
     return json.data.jwt;
   }
 
-  private async verifyJwt(jwt: string): Promise<boolean> {
+  private async verifyJwt(jwt: string, expectedWallet: string): Promise<boolean> {
     let payload: Record<string, unknown>;
     try {
       const result = await jwtVerify(jwt, this.jwks, {
@@ -124,9 +126,18 @@ export class AttestClient {
       });
       payload = result.payload as Record<string, unknown>;
     } catch (err) {
-      throw new AttestUnreachableError(
-        `JWT verification failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+      console.error(
+        '@skyemeta/access: /v1/attest JWT verification failed:',
+        err instanceof Error ? err.message : err,
       );
+      throw new AttestUnreachableError();
+    }
+    const sub = payload.sub;
+    if (typeof sub !== 'string' || sub.toLowerCase() !== expectedWallet.toLowerCase()) {
+      console.error(
+        `@skyemeta/access: /v1/attest JWT sub claim does not bind to requested wallet (expected ${expectedWallet}, got ${String(sub)})`,
+      );
+      throw new AttestUnreachableError();
     }
     return payload.pass === true;
   }

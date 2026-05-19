@@ -18,6 +18,7 @@ const DEFAULT_CACHE_TTL_MS = 2000;
 const MIN_CACHE_TTL_MS = 100;
 const MIN_NONCE_TTL_MS = 6 * 60 * 1000;
 const DEFAULT_RETRY_COUNT = 1;
+const MAX_STALE_FALLBACK_MS = 60_000;
 
 export interface AccessRequest extends Request {
   skyemetaAccess?: {
@@ -34,7 +35,7 @@ export class Access {
   private readonly cacheTtlMs: number;
   private readonly cache: AttestationCache;
   private readonly disabled: boolean;
-  private readonly siweDomain: string | undefined;
+  private readonly siweDomain: string;
   private readonly localMode: AccessConfig['localMode'];
   private readonly attestClient: AttestClient;
 
@@ -44,6 +45,12 @@ export class Access {
     }
     if (!config.collections || Object.keys(config.collections).length === 0) {
       throw new Error('@skyemeta/access: collections map must contain at least one entry');
+    }
+    if (!config.siweDomain) {
+      throw new Error(
+        '@skyemeta/access: siweDomain is required. Set it to the host your API serves SIWE messages for (e.g., "api.yourservice.com"). ' +
+        'Behind a reverse proxy, do not rely on request-host inference — proxies can be tricked into forwarding spoofed Host headers.',
+      );
     }
 
     if (config.localMode?.mockAttest && process.env.NODE_ENV !== 'development') {
@@ -172,9 +179,11 @@ export class Access {
       this.cache.set(wallet, collection.address, pass);
       return pass;
     } catch (err) {
-      const stale = this.cache.getStale(wallet, collection.address);
+      const stale = this.cache.getStale(wallet, collection.address, MAX_STALE_FALLBACK_MS);
       if (stale !== undefined) {
-        console.warn('@skyemeta/access: /v1/attest unreachable; serving stale-cache result');
+        console.warn(
+          `@skyemeta/access: /v1/attest unreachable; serving stale-cache result (within ${MAX_STALE_FALLBACK_MS}ms grace window)`,
+        );
         return stale;
       }
       throw err;
@@ -230,13 +239,6 @@ export class Access {
       );
     }
 
-    if (!config.siweDomain && hasProxyEnv()) {
-      console.warn(
-        '⚠ @skyemeta/access: siweDomain is unset and a proxy environment was detected (Vercel/Lambda/Cloud Run). ' +
-        'Set siweDomain explicitly to avoid host-header spoofing.',
-      );
-    }
-
     if (config.cacheTtlMs !== undefined && config.cacheTtlMs > 0 && config.cacheTtlMs < MIN_CACHE_TTL_MS) {
       console.warn(
         `⚠ @skyemeta/access: cacheTtlMs=${config.cacheTtlMs}ms is below the ${MIN_CACHE_TTL_MS}ms minimum floor; using ${MIN_CACHE_TTL_MS}ms. ` +
@@ -258,12 +260,3 @@ function resolveCacheTtl(input: number | undefined): number {
   return Math.max(input, MIN_CACHE_TTL_MS);
 }
 
-function hasProxyEnv(): boolean {
-  return Boolean(
-    process.env.VERCEL ||
-      process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      process.env.K_SERVICE ||
-      process.env.FUNCTION_TARGET ||
-      process.env.FUNCTIONS_EMULATOR,
-  );
-}
