@@ -8,7 +8,7 @@ export const DEFAULT_JWKS_URL = 'https://api.insumermodel.com/.well-known/jwks.j
 
 const ATTEST_TIMEOUT_MS = 10_000;
 const RETRY_BACKOFF_MS = 500;
-const ISSUER = 'https://insumermodel.com';
+const ISSUER = 'https://api.insumermodel.com';
 
 interface AttestRequestBody {
   wallet: string;
@@ -24,9 +24,7 @@ interface AttestRequestBody {
 interface AttestEnvelope {
   ok: boolean;
   data?: {
-    attestation?: {
-      jwt?: string;
-    };
+    jwt?: string;
   };
   error?: { code: number; message: string };
 }
@@ -107,14 +105,14 @@ export class AttestClient {
     }
 
     const json = (await response.json()) as AttestEnvelope;
-    if (!json.ok || !json.data?.attestation?.jwt) {
+    if (!json.ok || !json.data?.jwt) {
       throw new Error(
         json.error?.message
           ? `/v1/attest envelope error: ${json.error.message}`
-          : '/v1/attest response missing data.attestation.jwt (was format:"jwt" honored?)',
+          : '/v1/attest response missing data.jwt (was format:"jwt" honored?)',
       );
     }
-    return json.data.attestation.jwt;
+    return json.data.jwt;
   }
 
   private async verifyJwt(jwt: string): Promise<boolean> {
