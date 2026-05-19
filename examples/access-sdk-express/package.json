@@ -1,0 +1,15 @@
+{
+  "name": "access-sdk-express-example",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "NODE_ENV=development node server.js",
+    "test": "NODE_ENV=development node smoke-test.js"
+  },
+  "dependencies": {
+    "@skyemeta/access": "file:../..",
+    "express": "^4.21.0",
+    "viem": "^2.21.0"
+  }
+}
