@@ -43,7 +43,7 @@ app.post(
 
 `siweDomain` is required and must match what your wallet clients put in their SIWE message domain field. Set it explicitly to the host your API serves SIWE messages for — don't rely on request-host inference behind reverse proxies.
 
-Adopters also bring their own NFT/SBT collection (mint via [RNWY](https://basescan.org/address/0x7ee64394904968629F93039585c3Fc8562691F31), Thirdweb, Crossmint, or your own contract). See [Get an InsumerAPI key](#get-an-insumerapi-key) below for the key acquisition step.
+Adopters also bring their own NFT/SBT collection — any ERC-721 works. We used [RNWY](https://rnwy.com): the trust intelligence layer for autonomous AI agents — RNWY's audited ERC-5192 factory on Base provides the soulbound issuance substrate for the InsumerAccess collection that backs InsumerAPI's own customers. Other options: [Thirdweb](https://thirdweb.com/), [Crossmint](https://www.crossmint.com/), or your own contract. See [Get an InsumerAPI key](#get-an-insumerapi-key) below for the key acquisition step.
 
 ## Get an InsumerAPI key
 
