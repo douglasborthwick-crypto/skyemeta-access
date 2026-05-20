@@ -51,12 +51,14 @@ The SDK calls `/v1/attest` on your behalf, so you need an InsumerAPI key in `INS
 
 **Wallet-native (recommended for agent infrastructure):**
 
-Send USDC or USDT to the InsumerAPI platform wallet on any supported chain, then POST the transaction hash. The sender wallet becomes the key's identity — no email, no signup form, no static credential to issue.
+Send USDC or USDT to the InsumerAPI platform wallet on any supported chain, then POST the transaction hash. The sender wallet becomes the account's identity — no email, no signup form.
+
+This SDK needs a string key in `INSUMER_API_KEY` to call `/v1/attest` from your server, so pass `"keyDelivery": "apiKey"` to receive one in the response. The endpoint's default is `"wallet"`, which delivers only the on-chain access pass with no string key — that path is for agents calling `/v1/attest` directly from their own runtime, not for the SDK use case.
 
 ```bash
 curl -X POST https://api.insumermodel.com/v1/keys/buy \
   -H "Content-Type: application/json" \
-  -d '{"txHash":"0x…","chainId":8453,"amount":5,"appName":"my-agent"}'
+  -d '{"txHash":"0x…","chainId":8453,"amount":5,"appName":"my-agent","keyDelivery":"apiKey"}'
 ```
 
 Response (illustrative — key shown only once, store it):
@@ -67,13 +69,16 @@ Response (illustrative — key shown only once, store it):
   "data": {
     "success": true,
     "key": "insr_live_...",
+    "authMethod": "apiKey",
     "registeredWallet": "0x...",
     "totalCredits": 125
   }
 }
 ```
 
-The envelope also includes `name`, `tier`, `dailyLimit`, `creditsAdded`, `usdcPaid`, `effectiveRate`, `chainName`, and a top-level `meta` block — see the OpenAPI spec for the full schema.
+On EVM payments the response also carries a `passMint` block indicating that a non-transferable Insumer Access pass was minted to the sender wallet. The wallet can then use signed-message auth (`Authorization: Wallet`) on `/v1/attest` and `/v1/credits/buy` directly — handy for top-ups from an agent runtime that prefers signing over carrying the key.
+
+The envelope also includes `name`, `tier`, `dailyLimit`, `creditsAdded`, `usdcPaid`/`btcPaid`, `effectiveRate`, `chainName`, `authHint`, and a top-level `meta` block — see the OpenAPI spec for the full schema.
 
 Solana (USDC/USDT), Bitcoin (native BTC), and Tron (USDT-TRC20) are also supported via the same endpoint — see [`/v1/keys/buy` in the OpenAPI spec](https://insumermodel.com/openapi.yaml) for the platform wallet addresses per chain and the full request schema. Minimum purchase is $5 (or BTC equivalent). Volume discount tiers: $5–$99 buys 25 credits/$1, $100–$499 buys 33 credits/$1, $500+ buys 50 credits/$1.
 
