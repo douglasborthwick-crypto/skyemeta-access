@@ -59,7 +59,7 @@ curl -X POST https://api.insumermodel.com/v1/keys/buy \
   -d '{"txHash":"0x…","chainId":8453,"amount":5,"appName":"my-agent"}'
 ```
 
-Response (key shown only once — store it):
+Response (illustrative — key shown only once, store it):
 
 ```json
 {
@@ -73,7 +73,9 @@ Response (key shown only once — store it):
 }
 ```
 
-Solana (USDC/USDT), Bitcoin (native BTC), and Tron (USDT-TRC20) are also supported via the same endpoint — see [`/v1/keys/buy` in the OpenAPI spec](https://insumermodel.com/openapi.yaml) for the platform wallet addresses per chain and the full request schema. Minimum purchase is $5 (or BTC equivalent). Volume discounts: $5–$99 = 25 credits/$1; $100–$499 = 33 credits/$1 (25% off); $500+ = 50 credits/$1 (50% off).
+The envelope also includes `name`, `tier`, `dailyLimit`, `creditsAdded`, `usdcPaid`, `effectiveRate`, `chainName`, and a top-level `meta` block — see the OpenAPI spec for the full schema.
+
+Solana (USDC/USDT), Bitcoin (native BTC), and Tron (USDT-TRC20) are also supported via the same endpoint — see [`/v1/keys/buy` in the OpenAPI spec](https://insumermodel.com/openapi.yaml) for the platform wallet addresses per chain and the full request schema. Minimum purchase is $5 (or BTC equivalent). Volume discount tiers: $5–$99 buys 25 credits/$1, $100–$499 buys 33 credits/$1, $500+ buys 50 credits/$1.
 
 **Human signup (free tier):**
 

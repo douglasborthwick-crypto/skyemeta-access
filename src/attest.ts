@@ -107,7 +107,7 @@ export class AttestClient {
       if (response.status === 402) {
         console.error(
           '@skyemeta/access: /v1/attest returned 402 — InsumerAPI key is out of credits. ' +
-          'Top up at https://insumermodel.com/account/ or via POST /v1/credits/buy.',
+          'Top up at https://insumermodel.com/developers/account/ or via POST /v1/credits/buy.',
         );
         throw new InsumerCreditsExhaustedError();
       }
