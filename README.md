@@ -82,9 +82,11 @@ The envelope also includes `name`, `tier`, `dailyLimit`, `creditsAdded`, `usdcPa
 
 Solana (USDC/USDT), Bitcoin (native BTC), and Tron (USDT-TRC20) are also supported via the same endpoint — see [`/v1/keys/buy` in the OpenAPI spec](https://insumermodel.com/openapi.yaml) for the platform wallet addresses per chain and the full request schema. Minimum purchase is $5 (or BTC equivalent). Volume discount tiers: $5–$99 buys 25 credits/$1, $100–$499 buys 33 credits/$1, $500+ buys 50 credits/$1.
 
-**Human signup (free tier):**
+**Human signup (free tier) — no signup, no dashboard, no password:**
 
-If you're a human developer and want to try before paying, the signup form at [insumermodel.com](https://insumermodel.com) issues a free key (10 attestation credits, 100 requests/day, no card) in about 10 seconds.
+If you're a human developer and want to try before paying, enter your email at [insumermodel.com](https://insumermodel.com/?utm_source=npm-skyemeta-access) and the form issues a free key (10 attestation credits, 100 requests/day, no card) inline in about 10 seconds. No account is created — the key is the credential.
+
+**Already have a key?** Manage usage, top up, or upgrade at [insumermodel.com/developers/account/](https://insumermodel.com/developers/account/?utm_source=npm-skyemeta-access).
 
 ## What's in scope (v0.1.x)
 
