@@ -68,6 +68,14 @@ export interface AccessConfig {
   localMode?: LocalModeConfig;
   attestBaseUrl?: string;
   jwksUrl?: string;
+  /**
+   * Post-quantum policy. InsumerAPI returns an ML-DSA-65 companion (`pqJwt`) beside the ES256 JWT.
+   * It is always checked and reported. A companion that is present and FAILS always rejects the pass.
+   * An absent or unverifiable companion rejects the pass only once this date has passed (your own
+   * cutoff, judged by this process's clock). Undefined = reported only. Install `@noble/post-quantum`
+   * to verify companions; without it they are reported as unverifiable.
+   */
+  pqRequiredFrom?: string | Date;
 }
 
 export interface SiweEnvelope {

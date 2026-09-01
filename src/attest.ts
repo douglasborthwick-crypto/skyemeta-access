@@ -1,4 +1,5 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { verifyPqCompanion, pqFails, type PqResult } from './pq.js';
 import { AttestUnreachableError, InsumerCreditsExhaustedError, InvalidPassError } from './errors.js';
 import type { CollectionConfig } from './types.js';
 import { CHAIN_IDS } from './types.js';
@@ -25,6 +26,7 @@ interface AttestEnvelope {
   ok: boolean;
   data?: {
     jwt?: string;
+    pqJwt?: string;
   };
   error?: { code: number; message: string };
 }
@@ -36,10 +38,14 @@ export class AttestClient {
     private readonly insumerApiKey: string,
     private readonly retryCount: number,
     private readonly attestBaseUrl: string = DEFAULT_ATTEST_BASE_URL,
-    jwksUrl: string = DEFAULT_JWKS_URL,
+    private readonly jwksUrl: string = DEFAULT_JWKS_URL,
+    private readonly pqRequiredFrom?: string | Date,
   ) {
     this.jwks = createRemoteJWKSet(new URL(jwksUrl));
   }
+
+  /** Status of the post-quantum companion on the most recent verified attestation. */
+  lastPq: PqResult | undefined;
 
   async checkPass(wallet: string, collection: CollectionConfig): Promise<boolean> {
     const chainId = CHAIN_IDS[collection.chain];
@@ -59,11 +65,11 @@ export class AttestClient {
       ],
     };
 
-    const jwt = await this.callWithRetry(body);
-    return await this.verifyJwt(jwt, wallet);
+    const { jwt, pqJwt } = await this.callWithRetry(body);
+    return await this.verifyJwt(jwt, wallet, pqJwt);
   }
 
-  private async callWithRetry(body: AttestRequestBody): Promise<string> {
+  private async callWithRetry(body: AttestRequestBody): Promise<{ jwt: string; pqJwt?: string }> {
     let lastErr: unknown;
     for (let attempt = 0; attempt <= this.retryCount; attempt++) {
       try {
@@ -84,7 +90,7 @@ export class AttestClient {
     throw new AttestUnreachableError();
   }
 
-  private async callOnce(body: AttestRequestBody): Promise<string> {
+  private async callOnce(body: AttestRequestBody): Promise<{ jwt: string; pqJwt?: string }> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), ATTEST_TIMEOUT_MS);
     let response: Response;
@@ -122,10 +128,10 @@ export class AttestClient {
           : '/v1/attest response missing data.jwt (was format:"jwt" honored?)',
       );
     }
-    return json.data.jwt;
+    return { jwt: json.data.jwt, pqJwt: typeof json.data.pqJwt === 'string' ? json.data.pqJwt : undefined };
   }
 
-  private async verifyJwt(jwt: string, expectedWallet: string): Promise<boolean> {
+  private async verifyJwt(jwt: string, expectedWallet: string, pqJwt?: string): Promise<boolean> {
     let payload: Record<string, unknown>;
     try {
       const result = await jwtVerify(jwt, this.jwks, {
@@ -146,6 +152,14 @@ export class AttestClient {
         `@skyemeta/access: /v1/attest JWT sub claim does not bind to requested wallet (expected ${expectedWallet}, got ${String(sub)})`,
       );
       throw new AttestUnreachableError();
+    }
+    // Post-quantum companion: reported always; fails the pass when refuted, or when absent /
+    // unverifiable past the caller's own pqRequiredFrom cutoff.
+    const pq = await verifyPqCompanion(pqJwt, payload, this.jwksUrl);
+    this.lastPq = pq;
+    if (pqFails(pq, this.pqRequiredFrom)) {
+      console.error(`@skyemeta/access: post-quantum companion ${pq.status}${pq.reason ? ` (${pq.reason})` : ''}; rejecting under pqRequiredFrom policy`);
+      return false;
     }
     return payload.pass === true;
   }

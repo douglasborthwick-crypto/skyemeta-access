@@ -74,6 +74,7 @@ export class Access {
       config.attestRetryCount ?? DEFAULT_RETRY_COUNT,
       config.attestBaseUrl ?? DEFAULT_ATTEST_BASE_URL,
       config.jwksUrl ?? DEFAULT_JWKS_URL,
+      config.pqRequiredFrom,
     );
 
     this.emitStartupWarnings(config);
