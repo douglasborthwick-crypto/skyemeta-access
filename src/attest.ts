@@ -44,10 +44,19 @@ export class AttestClient {
     this.jwks = createRemoteJWKSet(new URL(jwksUrl));
   }
 
-  /** Status of the post-quantum companion on the most recent verified attestation. */
+  /**
+   * Status of the post-quantum companion on the most recent verified attestation made by THIS
+   * client instance. Instance-wide, so under concurrency it may belong to another request; use
+   * the per-call result of `checkPassWithVerdict` (or `req.skyemetaAccess.pq`) instead.
+   */
   lastPq: PqResult | undefined;
 
   async checkPass(wallet: string, collection: CollectionConfig): Promise<boolean> {
+    return (await this.checkPassWithVerdict(wallet, collection)).pass;
+  }
+
+  /** Like `checkPass`, but returns the companion verdict that belongs to this exact call. */
+  async checkPassWithVerdict(wallet: string, collection: CollectionConfig): Promise<{ pass: boolean; pq: PqResult }> {
     const chainId = CHAIN_IDS[collection.chain];
     if (chainId === undefined) {
       throw new Error(`Unsupported chain '${collection.chain}' — InsumerAPI accepts EVM chain names like 'base', 'ethereum', 'optimism'.`);
@@ -131,7 +140,7 @@ export class AttestClient {
     return { jwt: json.data.jwt, pqJwt: typeof json.data.pqJwt === 'string' ? json.data.pqJwt : undefined };
   }
 
-  private async verifyJwt(jwt: string, expectedWallet: string, pqJwt?: string): Promise<boolean> {
+  private async verifyJwt(jwt: string, expectedWallet: string, pqJwt?: string): Promise<{ pass: boolean; pq: PqResult }> {
     let payload: Record<string, unknown>;
     try {
       const result = await jwtVerify(jwt, this.jwks, {
@@ -159,9 +168,9 @@ export class AttestClient {
     this.lastPq = pq;
     if (pqFails(pq, this.pqRequiredFrom)) {
       console.error(`@skyemeta/access: post-quantum companion ${pq.status}${pq.reason ? ` (${pq.reason})` : ''}; rejecting under pqRequiredFrom policy`);
-      return false;
+      return { pass: false, pq };
     }
-    return payload.pass === true;
+    return { pass: payload.pass === true, pq };
   }
 }
 

@@ -26,7 +26,11 @@ export interface AccessRequest extends Request {
     wallet: string;
     collection: CollectionConfig;
     tierKey: string;
-    /** Post-quantum companion verdict for the attestation that admitted this request (undefined when served from cache or local mode). */
+    /**
+     * Post-quantum companion verdict for the upstream attestation that admitted THIS request:
+     * `verified`, `refuted`, `absent`, or `unverifiable` with a reason. Undefined when the
+     * request was served from cache or in local mode.
+     */
     pq?: PqResult;
   };
 }
@@ -139,8 +143,9 @@ export class Access {
 
   /**
    * Post-quantum companion verdict from the most recent upstream `/v1/attest` call made by this
-   * instance (`verified`, `refuted`, `absent`, or `unverifiable`, with a reason). Undefined until the
-   * first upstream call. Per-request, prefer `req.skyemetaAccess.pq`.
+   * instance, whichever request triggered it. Instance-wide and therefore racy under load; for
+   * the verdict that belongs to a specific request read `req.skyemetaAccess.pq` (undefined when
+   * the request was served from cache or in local mode).
    */
   get lastPq(): PqResult | undefined {
     return this.attestClient.lastPq;
@@ -149,7 +154,7 @@ export class Access {
   async hasValidPass(tierKey: string, walletAddress: string): Promise<boolean> {
     this.assertTierKey(tierKey);
     const collection = this.collections[tierKey];
-    return this.checkPassWithCache(walletAddress, collection);
+    return (await this.checkPassWithCache(walletAddress, collection)).pass;
   }
 
   async verifyWalletSignIn(authorizationHeader: string | undefined): Promise<string> {
@@ -170,9 +175,10 @@ export class Access {
   ): Promise<void> {
     try {
       const wallet = await this.verifyWalletSignIn(req.headers.authorization);
-      const pass = await this.checkPassWithCache(wallet, collection);
+      const { pass, pq } = await this.checkPassWithCache(wallet, collection);
       if (!pass) return this.sendError(res, new InvalidPassError());
-      req.skyemetaAccess = { wallet, collection, tierKey, pq: this.attestClient.lastPq };
+      // pq is the verdict from THIS request's upstream call; undefined on a cache hit or in local mode.
+      req.skyemetaAccess = { wallet, collection, tierKey, pq };
       next();
     } catch (err) {
       if (err instanceof AccessError) return this.sendError(res, err);
@@ -181,23 +187,32 @@ export class Access {
     }
   }
 
-  private async checkPassWithCache(wallet: string, collection: CollectionConfig): Promise<boolean> {
+  private async checkPassWithCache(
+    wallet: string,
+    collection: CollectionConfig,
+  ): Promise<{ pass: boolean; pq?: PqResult }> {
     const cached = this.cache.get(wallet, collection.address);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) return { pass: cached };
 
     try {
-      const pass = this.localMode?.mockAttest
-        ? Boolean(await this.localMode.mockAttest(wallet, collection.address))
-        : await this.attestClient.checkPass(wallet, collection);
+      let pass: boolean;
+      let pq: PqResult | undefined;
+      if (this.localMode?.mockAttest) {
+        pass = Boolean(await this.localMode.mockAttest(wallet, collection.address));
+      } else {
+        const verdict = await this.attestClient.checkPassWithVerdict(wallet, collection);
+        pass = verdict.pass;
+        pq = verdict.pq;
+      }
       this.cache.set(wallet, collection.address, pass);
-      return pass;
+      return { pass, pq };
     } catch (err) {
       const stale = this.cache.getStale(wallet, collection.address, MAX_STALE_FALLBACK_MS);
       if (stale !== undefined) {
         console.warn(
           `@skyemeta/access: /v1/attest unreachable; serving stale-cache result (within ${MAX_STALE_FALLBACK_MS}ms grace window)`,
         );
-        return stale;
+        return { pass: stale };
       }
       throw err;
     }

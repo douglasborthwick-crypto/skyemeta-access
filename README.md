@@ -92,6 +92,10 @@ If you're a human developer and want to try before paying, enter your email at [
 
 The SDK's `requireValidPassOrApiKey` and `requireValidPass` middleware check **NFT ownership on EVM chains** (`nft_ownership` condition against any of the 32 EVM chains InsumerAPI supports — Ethereum, Base, Optimism, Arbitrum, Polygon, etc.). Non-EVM chains (Solana, XRPL, Bitcoin, Tron, Stellar, Sui) and richer condition types (`token_balance`, `eas_attestation`, `farcaster_id`, compound stacks) are reachable via direct calls to InsumerAPI's `/v1/attest` — the SDK's middleware stays focused on the common case.
 
+## Post-quantum companion
+
+InsumerAPI returns an ML-DSA-65 companion (`pqJwt`) beside the ES256 JWT on every attestation. The SDK checks it on every upstream call and reports it as `req.skyemetaAccess.pq` (`verified`, `refuted`, `absent`, or `unverifiable`, with a reason); it is undefined when the request was served from the cache or in local mode. A refuted companion always rejects the pass. An absent or unverifiable companion rejects only once your own `pqRequiredFrom` date (a config option, judged by this process's clock) has passed; leave it unset to report only. Install the optional peer `@noble/post-quantum` to verify companions; without it a present companion is reported `unverifiable`. Other config: `jwksUrl` and `attestBaseUrl` override the JWKS and API endpoints for testing.
+
 ## Pricing
 
 The SDK is free and MIT-licensed. Each wallet-signed request hits InsumerAPI's `/v1/attest` once per `cacheTtlMs` window per (wallet, collection); cached results inside that window skip the upstream call. With the default `cacheTtlMs: 2000`, a wallet sending five requests in a second triggers one attest call. Adopters running high-throughput or revocation-sensitive flows can shrink the cache or set `cacheTtlMs: 0` to disable it. API-key requests never touch InsumerAPI.
