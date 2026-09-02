@@ -11,10 +11,9 @@ export class AttestationCache {
     if (this.ttlMs === 0) return undefined;
     const entry = this.entries.get(key(wallet, collection));
     if (!entry) return undefined;
-    if (entry.expiresAt <= Date.now()) {
-      this.entries.delete(key(wallet, collection));
-      return undefined;
-    }
+    // An expired entry is kept (not deleted) so that getStale() can still serve it inside the
+    // stale-fallback window when /v1/attest is unreachable; getStale() evicts beyond that window.
+    if (entry.expiresAt <= Date.now()) return undefined;
     return entry.pass;
   }
 

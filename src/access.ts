@@ -13,6 +13,7 @@ import {
 import { InMemoryNonceStore } from './nonce-store.js';
 import { extractEnvelope, verifySiwe } from './siwe.js';
 import type { AccessConfig, CollectionConfig, NonceStore } from './types.js';
+import type { PqResult } from './pq.js';
 
 const DEFAULT_CACHE_TTL_MS = 2000;
 const MIN_CACHE_TTL_MS = 100;
@@ -25,6 +26,8 @@ export interface AccessRequest extends Request {
     wallet: string;
     collection: CollectionConfig;
     tierKey: string;
+    /** Post-quantum companion verdict for the attestation that admitted this request (undefined when served from cache or local mode). */
+    pq?: PqResult;
   };
 }
 
@@ -134,6 +137,15 @@ export class Access {
     };
   }
 
+  /**
+   * Post-quantum companion verdict from the most recent upstream `/v1/attest` call made by this
+   * instance (`verified`, `refuted`, `absent`, or `unverifiable`, with a reason). Undefined until the
+   * first upstream call. Per-request, prefer `req.skyemetaAccess.pq`.
+   */
+  get lastPq(): PqResult | undefined {
+    return this.attestClient.lastPq;
+  }
+
   async hasValidPass(tierKey: string, walletAddress: string): Promise<boolean> {
     this.assertTierKey(tierKey);
     const collection = this.collections[tierKey];
@@ -160,7 +172,7 @@ export class Access {
       const wallet = await this.verifyWalletSignIn(req.headers.authorization);
       const pass = await this.checkPassWithCache(wallet, collection);
       if (!pass) return this.sendError(res, new InvalidPassError());
-      req.skyemetaAccess = { wallet, collection, tierKey };
+      req.skyemetaAccess = { wallet, collection, tierKey, pq: this.attestClient.lastPq };
       next();
     } catch (err) {
       if (err instanceof AccessError) return this.sendError(res, err);

@@ -88,9 +88,9 @@ If you're a human developer and want to try before paying, enter your email at [
 
 **Already have a key?** Manage usage, top up, or upgrade at [insumermodel.com/developers/account/](https://insumermodel.com/developers/account/?utm_source=npm-skyemeta-access).
 
-## What's in scope (v0.1.x)
+## What's in scope (v0.2.x)
 
-The SDK's `requireValidPassOrApiKey` and `requireValidPass` middleware check **NFT ownership on EVM chains** (`nft_ownership` condition against any of the 31 EVM chains InsumerAPI supports — Ethereum, Base, Optimism, Arbitrum, Polygon, etc.). Non-EVM chains (Solana, XRPL, Bitcoin, Tron, Stellar, Sui) and richer condition types (`token_balance`, `eas_attestation`, `farcaster_id`, compound stacks) are reachable via direct calls to InsumerAPI's `/v1/attest` — the SDK's middleware stays focused on the common case.
+The SDK's `requireValidPassOrApiKey` and `requireValidPass` middleware check **NFT ownership on EVM chains** (`nft_ownership` condition against any of the 32 EVM chains InsumerAPI supports — Ethereum, Base, Optimism, Arbitrum, Polygon, etc.). Non-EVM chains (Solana, XRPL, Bitcoin, Tron, Stellar, Sui) and richer condition types (`token_balance`, `eas_attestation`, `farcaster_id`, compound stacks) are reachable via direct calls to InsumerAPI's `/v1/attest` — the SDK's middleware stays focused on the common case.
 
 ## Pricing
 
@@ -100,7 +100,7 @@ When `/v1/attest` is unreachable, the SDK falls back to its most recent cached r
 
 ## Distributed by
 
-[Skye Meta Corp.](https://skyemeta.com) — wrapper layer over [InsumerAPI](https://insumermodel.com) (the wallet-auth primitive: condition-based access, ECDSA-signed booleans, JWKS-verifiable, 37 chains).
+[Skye Meta Corp.](https://skyemeta.com) — wrapper layer over [InsumerAPI](https://insumermodel.com) (the wallet-auth primitive: condition-based access, ECDSA-signed booleans with an ML-DSA-65 post-quantum companion, JWKS-verifiable, 38 chains).
 
 ## License
 

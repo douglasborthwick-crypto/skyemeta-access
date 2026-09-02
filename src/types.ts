@@ -24,6 +24,7 @@ export type ChainName =
   | 'ethereum'
   | 'bnb'
   | 'base'
+  | 'robinhood'
   | 'avalanche'
   | 'polygon'
   | 'arbitrum'
@@ -106,6 +107,7 @@ export const CHAIN_IDS: Record<ChainName, number> = {
   ethereum: 1,
   bnb: 56,
   base: 8453,
+  robinhood: 4663,
   avalanche: 43114,
   polygon: 137,
   arbitrum: 42161,
