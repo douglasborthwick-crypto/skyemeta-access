@@ -50,6 +50,20 @@ export class AttestUnreachableError extends AccessError {
 }
 
 /**
+ * Thrown when InsumerAPI /v1/attest refuses the request itself (a 4xx other than 402, 408
+ * or 429): a bad key, a retired chain, a malformed contract address. Retrying cannot change
+ * the answer, so it is not retried and not reported as an outage. The upstream message is
+ * logged server-side; the client sees an opaque 500.
+ */
+export class AttestRejectedError extends AccessError {
+  readonly upstreamStatus: number;
+  constructor(upstreamStatus: number) {
+    super('Wallet verification is misconfigured on this server', 500);
+    this.upstreamStatus = upstreamStatus;
+  }
+}
+
+/**
  * Thrown when InsumerAPI /v1/attest returns 402 (Insufficient credits).
  * Adopter's InsumerAPI key needs a top-up. Distinct from AttestUnreachableError
  * so adopters can alert on credit drawdown separately from genuine outages.

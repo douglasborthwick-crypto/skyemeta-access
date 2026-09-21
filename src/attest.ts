@@ -1,6 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { verifyPqCompanion, pqFails, type PqResult } from './pq.js';
-import { AttestUnreachableError, InsumerCreditsExhaustedError, InvalidPassError } from './errors.js';
+import { AttestRejectedError, AttestUnreachableError, InsumerCreditsExhaustedError, InvalidPassError } from './errors.js';
 import type { CollectionConfig } from './types.js';
 import { CHAIN_IDS } from './types.js';
 
@@ -87,6 +87,7 @@ export class AttestClient {
         lastErr = err;
         if (err instanceof InvalidPassError) throw err;
         if (err instanceof InsumerCreditsExhaustedError) throw err;
+        if (err instanceof AttestRejectedError) throw err;
         console.error(
           `@skyemeta/access: /v1/attest call failed (attempt ${attempt + 1}/${this.retryCount + 1}):`,
           err instanceof Error ? err.message : err,
@@ -125,6 +126,10 @@ export class AttestClient {
           'Top up at https://insumermodel.com/developers/account/ or via POST /v1/credits/buy.',
         );
         throw new InsumerCreditsExhaustedError();
+      }
+      if (response.status >= 400 && response.status < 500 && response.status !== 408 && response.status !== 429) {
+        console.error(`@skyemeta/access: /v1/attest rejected the request (HTTP ${response.status}): ${text.slice(0, 300)}`);
+        throw new AttestRejectedError(response.status);
       }
       throw new Error(`/v1/attest returned HTTP ${response.status}: ${text.slice(0, 200)}`);
     }

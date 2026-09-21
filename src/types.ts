@@ -41,7 +41,6 @@ export type ChainName =
   | 'zksync'
   | 'blast'
   | 'celo'
-  | 'moonbeam'
   | 'opbnb'
   | 'unichain'
   | 'ink'
@@ -50,9 +49,9 @@ export type ChainName =
   | 'apechain'
   | 'taiko'
   | 'ronin'
-  | 'moonriver'
   | 'viction'
-  | 'xdc';
+  | 'xdc'
+  | 'arc';
 
 export interface LocalModeConfig {
   mockAttest: (wallet: string, collection: string) => Promise<boolean> | boolean;
@@ -124,7 +123,6 @@ export const CHAIN_IDS: Record<ChainName, number> = {
   zksync: 324,
   blast: 81457,
   celo: 42220,
-  moonbeam: 1284,
   opbnb: 204,
   unichain: 130,
   ink: 57073,
@@ -133,7 +131,7 @@ export const CHAIN_IDS: Record<ChainName, number> = {
   apechain: 33139,
   taiko: 167000,
   ronin: 2020,
-  moonriver: 1285,
   viction: 88,
   xdc: 50,
+  arc: 5042,
 };

@@ -2,6 +2,7 @@ export { Access } from './access.js';
 export type { AccessRequest } from './access.js';
 export {
   AccessError,
+  AttestRejectedError,
   AttestUnreachableError,
   DisabledModeError,
   ExpiredSignatureError,
