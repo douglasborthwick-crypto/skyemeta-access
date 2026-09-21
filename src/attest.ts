@@ -10,6 +10,7 @@ export const DEFAULT_JWKS_URL = 'https://api.insumermodel.com/.well-known/jwks.j
 const ATTEST_TIMEOUT_MS = 10_000;
 const RETRY_BACKOFF_MS = 500;
 const ISSUER = 'https://api.insumermodel.com';
+const ATTEST_KIDS = ['insumer-attest-v1', 'insumer-attest-v2'];
 
 interface AttestRequestBody {
   wallet: string;
@@ -152,6 +153,11 @@ export class AttestClient {
         issuer: ISSUER,
         algorithms: ['ES256'],
       });
+      // Only InsumerAPI's attestation signing keys issue attestation JWTs; any other key in the
+      // JWKS (for example a trust-profile key) is refused.
+      if (!ATTEST_KIDS.includes(String(result.protectedHeader.kid))) {
+        throw new Error(`JWT signed by "${String(result.protectedHeader.kid)}", not an attestation key`);
+      }
       payload = result.payload as Record<string, unknown>;
     } catch (err) {
       console.error(

@@ -64,6 +64,11 @@ export class Access {
       throw new ProductionMockError(process.env.NODE_ENV);
     }
 
+    if (config.pqRequiredFrom !== undefined && isNaN(new Date(config.pqRequiredFrom).getTime())) {
+      // A malformed cutoff is a configuration error: refuse to start rather than fail mid-request.
+      throw new Error(`@skyemeta/access: pqRequiredFrom is not a valid date: ${String(config.pqRequiredFrom)}`);
+    }
+
     if (config.nonceStore?.ttlMs !== undefined && config.nonceStore.ttlMs < MIN_NONCE_TTL_MS) {
       throw new NonceTtlTooShortError(config.nonceStore.ttlMs);
     }
