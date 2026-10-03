@@ -104,7 +104,7 @@ When `/v1/attest` is unreachable, the SDK falls back to its most recent cached r
 
 ## Distributed by
 
-[Skye Meta Corp.](https://skyemeta.com) — wrapper layer over [InsumerAPI](https://insumermodel.com) (the wallet-auth primitive: condition-based access, ECDSA-signed booleans with an ML-DSA-65 post-quantum companion, JWKS-verifiable, 38 chains).
+[Skye Meta Corp.](https://skyemeta.com) — wrapper layer over [InsumerAPI](https://insumermodel.com) (the wallet-auth primitive: condition-based access, ECDSA-signed booleans with an ML-DSA-65 post-quantum companion, JWKS-verifiable, 37 chains).
 
 ## License
 
