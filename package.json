@@ -38,7 +38,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/douglasborthwick-crypto/skyemeta-access.git"
+    "url": "git+https://github.com/skyemeta/skyemeta-access.git"
   },
   "homepage": "https://skyemeta.com/access/",
   "engines": {
